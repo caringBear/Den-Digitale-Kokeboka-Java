@@ -1,5 +1,9 @@
+
+
 //Naviger i GUIet med piltastene, ALT er slett (roed knapp)
 //Taco er eneste oppskrift man kan gaa inn paa
+//Ukesmeny er ikke implementert
+
 
 //Importerer jSerialComm som ble funnet paa nettet til aa lese det Arduino printer til Serial
 import com.fazecast.jSerialComm.SerialPort;
