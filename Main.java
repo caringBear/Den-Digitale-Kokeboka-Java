@@ -1,7 +1,10 @@
-//Naviger med piltastene
+//Naviger i GUIet med piltastene, ALT er slett (roed knapp)
+//Taco er eneste oppskrift man kan gaa inn paa
 
-
+//Importerer jSerialComm som ble funnet paa nettet til aa lese det Arduino printer til Serial
 import com.fazecast.jSerialComm.SerialPort;
+
+//Importerer det som brukes i JavaFX
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -16,6 +19,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+
 
 import javax.sound.sampled.*;
 import java.io.BufferedInputStream;
@@ -88,6 +92,7 @@ public class Main extends Application {
       setupArduino();
       setupLyd();
       
+      //Lager alle de ulike scenene, de som krever det med egne "lagScene"-metoder
       scannetVareScene = new ScannetVareKlasse();
       ferdigScene = new FerdigKlasse();
       forsideScene = new ForsideKlasse(lagForside());
@@ -96,11 +101,12 @@ public class Main extends Application {
       tacoIngredienserScene = new TacoIngredienserKlasse(lagTacoIngredienser());
       tacoOppskriftScene = new TacoOppskriftKlasse(lagTacoOppskrift());
       
+      //Tar vare paa en peker til denne VBoxen siden vi trenger tilgang til aa endre den
       mineVarerVBox = lagMineVarer();
       mineVarerScene = new TacoOppskriftKlasse(mineVarerVBox);
    
       
-      //tastatur-events, for testing, kan fjernes
+      //tastatur-events, for testing, kan eventuelt fjernes foer deployment
       vindu.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
          String knapp = "" + event.getCode();
          switch (knapp) {
@@ -125,17 +131,21 @@ public class Main extends Application {
          }
       });
       
+      
       //vindu.setResizable(false);
       vindu.setY(0);
       vindu.setWidth(800);
       vindu.setHeight(480);
       //For kjoering i Windows, kommenter ut foer deployment til Raspberry
       //vindu.setWidth(800+16);
-      vindu.setHeight(480 + 39 + 300);
-      //Sett foerste scene til forsiden
-      endreSceneTil(forsideScene);
+      vindu.setHeight(820); // Paa windows ble GUIet trykket sammen om hoeyden var mindre enn scenen, mens paa Arduinoen skjedde ikke dette
+      endreSceneTil(forsideScene); //Sett foerste scene til forsiden
+   
+   
+      //Gjoer at man kan kjoere uten aa aapne GUIet, var nyttig for debugging
       if (!argsPassed.equals("0")) vindu.show();
    }
+   
    
    public void startTask(Scanner data) {
       Runnable task = new Runnable() {
@@ -147,8 +157,9 @@ public class Main extends Application {
       
       Thread backgroundThread = new Thread(task);
       backgroundThread.setDaemon(true);
-      backgroundThread.start();
+      backgroundThread.start(); //Starter bakgrunnstraad for aa vente paa input
    }
+   
    
    public void runTask(Scanner data) {
       while (data.hasNextLine()) {
@@ -156,7 +167,7 @@ public class Main extends Application {
          Platform.runLater(new Runnable() {
             @Override
             public void run() {
-               System.out.println(linje);
+               System.out.println(linje); //Printer input fra Arduino, for debugging
                if (linje.equals("OPP")) {
                   currentScene.trykketOPP();
                } else if (linje.equals("NED")) {
@@ -169,13 +180,14 @@ public class Main extends Application {
                   currentScene.trykketSLETT();
                } else if (linje.equals("exit")) {
                   System.exit(0);
-               } else {
-                  beepLyd();
+               } else { //Inputen fra Arduino er ikke en av knappene, maa da vaere scanning av matvare
+                  beepLyd(); //Spill lyd
                   SceneKlasse tempScene = currentScene;
                   ScannetVareKlasse.vareScannet(linje);
                   endreSceneTil(scannetVareScene);
-                  PauseTransition delay = new PauseTransition(Duration.seconds(2));
-                  delay.setOnFinished(event -> endreSceneTil(tempScene));
+                  PauseTransition delay = new PauseTransition(Duration.seconds(2)); //Pausetransition for aa ungaa at GUIet hengte seg,
+                  // og at lyden ikke spilte av skikkelig.
+                  delay.setOnFinished(event -> endreSceneTil(tempScene)); //Setter scenen tilbake til forrige scene
                   delay.play();
                   
                   oppdaterMineVarer(linje);
@@ -260,16 +272,18 @@ public class Main extends Application {
       return new Image(Main.class.getResource("bilder/" + bildefil + ".png").toExternalForm());
    }
    
+   //Oppdaterer tacooppskriften utifra hvor mange personer som er valgt tidligere,
+   // oppdaterer seg hver gang man endrer antall personer.
    public static void oppdaterTacoMengder() {
       int antallPersoner = AntallPersonerKlasse.antallPersonerSomVises;
       
       tacoOverskriftLabel.setText("Ingredienser til taco for " + AntallPersonerKlasse.antallPersonerSomVises + " personer:");
-      
       kjoettdeigMengdeLabel.setText("" + 125 * antallPersoner + "g");
-      
       ostMengdeLabel.setText("" + 50 * antallPersoner + "g");
-      
       tacolefserMengdeLabel.setText("" + antallPersoner * 2);
+      
+      //Under er saerdeles lite elegant kode, men som virker.
+      // Brukte ikke bare vanlig utregning fordi jeg ville ha komma og ikke punktum.
       if (antallPersoner == 1) {
          tomatMengdeLabel.setText("0,5");
          maisMengdeLabel.setText("0,25");
@@ -313,6 +327,10 @@ public class Main extends Application {
       }
    }
    
+   //Under foelger metoder som lager og returnerer rot-objektet til hver scene,
+   // for de fleste scener returneres en VBox.
+   //Denne maaten aa gjoere det paa ble valgt fordi den funket og ikke fordi den var spesielt god,
+   // kunne med fordel ha gjort det enklere aa lage nye scener med nytt innhold.
    VBox lagForside() {
       AnchorPane logoTopp = new AnchorPane();
       logoTopp.setPrefSize(800, 94);
@@ -1232,6 +1250,7 @@ public class Main extends Application {
       return rot;
    }
    
+   //Oppdaterer varene i MineVarerScene
    public static void oppdaterMineVarer(String vare) {
       switch (vare) {
          case "kjoettdeig":
@@ -1259,6 +1278,8 @@ public class Main extends Application {
       }
    }
    
+   //Oppdaterer antall personer i AntallPersonerScene, viser og skjuler allerede opprettede ImageViews
+   // ettersom brukeren trykker opp eller ned, fra 1 til 5 personer
    public void oppdaterPersoner() {
       for (int i = 1; i < 6; i++) {
          antPersonerLabel.setText(Integer.toString(antallPersonerSomVises));
@@ -1270,6 +1291,7 @@ public class Main extends Application {
       }
    }
    
+   //Oppretter tilkobling til Arduino gjennom USB Serial-port
    void setupArduino() {
       try {
          SerialPort[] ports = SerialPort.getCommPorts();
@@ -1280,13 +1302,13 @@ public class Main extends Application {
          serialPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
          Scanner data = new Scanner(serialPort.getInputStream());
          System.out.println(data);
-         startTask(data);
+         startTask(data); //Starter traad for input fra Arduino, slik at GUIet ikke henger seg
       } catch (ArrayIndexOutOfBoundsException e) {
-         System.out.println("Arduino ikke funnet");
+         System.out.println("Arduino ikke funnet"); //Feilmelding, men kan kjoeres uten Arduino koblet til
       }
-
    }
    
+   //Gjoer lyden klar til avspilling
    void setupLyd() {
       try {
          beepClip = AudioSystem.getClip();
